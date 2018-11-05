@@ -11,23 +11,22 @@ chart_image_positions = {}
 
 # config
 dims = 2048
-n_nearest_neighbors = 5000
-trees = 1000
+n_nearest_neighbors = 30
+trees = 10
 infiles = glob.glob('image_vectors/*.npz')
 
 # build ann index
 t = AnnoyIndex(dims)
 for file_index, i in enumerate(infiles):
-  print('reading file', file_index)
+  print(file_index)
   file_vector = np.loadtxt(i)
   file_name = os.path.basename(i).split('.')[0]
   file_index_to_file_name[file_index] = file_name
   file_index_to_file_vector[file_index] = file_vector
   t.add_item(file_index, file_vector)
-print('buidling')
+print('build')
 t.build(trees)
 print('done')
-
 # create a nearest neighbors json file for each input
 if not os.path.exists('nearest_neighbors'):
   os.makedirs('nearest_neighbors')
@@ -39,11 +38,16 @@ for i in file_index_to_file_name.keys():
   named_nearest_neighbors = []
   nearest_neighbors = t.get_nns_by_item(i, n_nearest_neighbors)
   for j in nearest_neighbors:
-	print('outer ', i, ' inner ', j)
-	neighbor_file_name = file_index_to_file_name[j]
-	neighbor_file_vector = file_index_to_file_vector[j]
-
+    neighbor_file_name = file_index_to_file_name[j]
+    neighbor_file_vector = file_index_to_file_vector[j]
     
-  print(named_nearest_neighbors)
+    similarity = 1 - spatial.distance.cosine(master_vector, neighbor_file_vector)
+    rounded_similarity = int((similarity * 10000)) / 10000.0
+    print(similarity)
+    named_nearest_neighbors.append({
+      'filename': neighbor_file_name,
+      'similarity': rounded_similarity
+    })
+
   with open('nearest_neighbors/' + master_file_name + '.json', 'w') as out:
     json.dump(named_nearest_neighbors, out)
